@@ -424,13 +424,13 @@ def get_auditoria():
     try:
         limit = int(request.args.get('limit', 100))
         offset = int(request.args.get('offset', 0))
+        query = request.args.get('query', '').strip()
     except ValueError:
-        return jsonify({"error": "limit/offset inválidos"}), 400
+        return jsonify({"error": "Parámetros inválidos"}), 400
 
-    sql = text("""
+    sql = """
         SELECT
             id,
-            -- Forzamos hora de Argentina al mostrar
             to_char(
                 timezone('America/Argentina/Buenos_Aires', fecha::timestamptz),
                 'DD/MM/YYYY HH24:MI'
@@ -445,17 +445,35 @@ def get_auditoria():
             ip_origen,
             user_agent
         FROM auditoria
-        ORDER BY fecha DESC
-        LIMIT :limit OFFSET :offset
-    """)
+        WHERE 1=1
+    """
+    params = {}
+
+    # 🔍 Filtro por texto opcional
+    if query:
+        sql += """
+            AND (
+                LOWER(usuario) LIKE :q OR
+                LOWER(accion) LIKE :q OR
+                LOWER(tabla_afectada) LIKE :q OR
+                LOWER(id_registro) LIKE :q OR
+                LOWER(descripcion) LIKE :q
+            )
+        """
+        params["q"] = f"%{query.lower()}%"
+
+    sql += " ORDER BY fecha DESC LIMIT :limit OFFSET :offset"
+    params["limit"] = limit
+    params["offset"] = offset
 
     try:
         with db.engine.connect() as conn:
-            result = conn.execute(sql, {"limit": limit, "offset": offset})
+            result = conn.execute(text(sql), params)
             data = [dict(row._mapping) for row in result]
         return jsonify(data), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 
 # --- vista para ver la auditoría ---
