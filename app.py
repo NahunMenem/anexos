@@ -1803,6 +1803,13 @@ app.add_template_filter(to_float, 'to_float')
 
 
 
+@app.route('/mobiliario_filtros')
+def mobiliario_filtros():
+    anexos = Anexo.query.order_by(Anexo.nombre).all()
+    rubros = Rubro.query.order_by(Rubro.nombre).all()
+    return render_template("mobiliario_filtros.html", anexos=anexos, rubros=rubros)
+
+
 # ▶️ Ejecutar con python app.py
 if __name__ == '__main__':
     app.run(debug=True)
