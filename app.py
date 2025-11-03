@@ -1343,45 +1343,63 @@ def imprimir_listado_preview():
     sub_id = request.args.get('subdependencia')
     filtros = request.args.get('filtros', '').split(',')
     incluir_faltantes = request.args.get("incluir_faltantes", "false").lower() == "true"
+    estado_conservacion = request.args.get("estado_conservacion")
 
+    # Base de la consulta
     query = """
-        SELECT m.descripcion, m.id
+        SELECT m.descripcion, m.id, m.estado_conservacion
         FROM mobiliario m
         JOIN subdependencias sd ON m.ubicacion_id = sd.id
         JOIN anexos a ON sd.id_anexo = a.id
         WHERE a.id = %s AND sd.id = %s
     """
+    params = [anexo_id, sub_id]
 
+    # Filtros booleanos (checkboxes)
     for campo in filtros:
         if campo and campo != "faltante":
             query += f" AND m.{campo} = TRUE"
 
+    # Incluir o excluir faltantes
     if not incluir_faltantes:
         query += " AND (m.faltante IS NULL OR m.faltante = FALSE)"
 
+    # Filtro por estado de conservación
+    if estado_conservacion:
+        query += " AND m.estado_conservacion = %s"
+        params.append(estado_conservacion)
+
+    # Ejecutar consulta
     conn = db.engine.raw_connection()
     cur = conn.cursor()
-    cur.execute(query, (anexo_id, sub_id))
+    cur.execute(query, tuple(params))
     mobiliarios = cur.fetchall()
     conn.close()
 
+    # Render rápido en HTML (preview)
     return render_template_string("""
     <table class="w-full table-auto border border-gray-300 text-sm mt-4">
       <thead class="bg-gray-100">
         <tr>
-          <th class="border px-2 py-1">Descripción</th>
-          <th class="border px-2 py-1">ID</th>
+          <th class="border px-2 py-1 text-left">Descripción</th>
+          <th class="border px-2 py-1 text-center">ID</th>
+          <th class="border px-2 py-1 text-center">Estado de conservación</th>
         </tr>
       </thead>
       <tbody>
         {% for m in mobiliarios %}
         <tr class="hover:bg-gray-50">
           <td class="border px-2 py-1">{{ m[0] }}</td>
-          <td class="border px-2 py-1">{{ m[1] }}</td>
+          <td class="border px-2 py-1 text-center">{{ m[1] }}</td>
+          <td class="border px-2 py-1 text-center">{{ m[2] or '-' }}</td>
         </tr>
         {% endfor %}
         {% if mobiliarios|length == 0 %}
-        <tr><td colspan="2" class="text-center p-4 text-gray-500">No se encontraron resultados.</td></tr>
+        <tr>
+          <td colspan="3" class="text-center p-4 text-gray-500">
+            No se encontraron resultados con los filtros seleccionados.
+          </td>
+        </tr>
         {% endif %}
       </tbody>
     </table>
