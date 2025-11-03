@@ -19,18 +19,16 @@
       font-family: 'Inter', sans-serif;
     }
     @media print {
-      .no-print {
-        display: none;
-      }
+      .no-print { display: none; }
     }
   </style>
 </head>
 <body class="bg-white text-black p-10 text-sm leading-relaxed">
   <div class="max-w-6xl mx-auto">
-    <!-- Encabezado con logo más grande -->
+    <!-- Encabezado -->
     <div class="flex items-center justify-between mb-8 border-b pb-4">
       <div class="flex items-center gap-6">
-        <img src="{{ url_for('static', filename='images/logo_legislatura.jpeg') }}" alt="Logo Legislatura" class="h-24 w-auto">
+        <img src="{{ url_for('static', filename='images/logo_legislatura.jpeg') }}" alt="Logo Legislatura" class="h-20 w-auto">
         <div>
           <h1 class="text-2xl font-bold text-gray-900 leading-tight">
             Inventario de Bienes Muebles
@@ -43,89 +41,94 @@
       </div>
     </div>
 
-    <!-- Información del Anexo y Subdependencia -->
+    <!-- Info principal -->
     <div class="mb-4 text-gray-800">
-      <p><strong>Anexo:</strong> {{ anexo_nombre }} <span class="text-gray-500"></span></p>
-      <p><strong>Subdependencia:</strong> {{ subdependencia_nombre }} <span class="text-gray-500">(Oficina N.º {{ subdependencia_id }})</span></p>
+      <p><strong>Anexo:</strong> {{ anexo_nombre }}</p>
+      <p><strong>Subdependencia:</strong> {{ subdependencia_nombre }} <span class="text-gray-500">(ID: {{ subdependencia_id }})</span></p>
     </div>
 
-    <!-- Tabla de Mobiliario -->
+    <!-- Filtros aplicados -->
+    {% set filtros_aplicados = [] %}
+    {% for clave, nombre in campos.items() %}
+      {% if request.args.get('filtros','').split(',')|list and clave in request.args.get('filtros').split(',') %}
+        {% set _ = filtros_aplicados.append(nombre) %}
+      {% endif %}
+    {% endfor %}
+    {% set estado = request.args.get('estado_conservacion') %}
+    <div class="mb-6 text-gray-700">
+      <p><strong>Filtros aplicados:</strong>
+        {% if filtros_aplicados or estado %}
+          {{ filtros_aplicados|join(', ') }}
+          {% if estado %} {% if filtros_aplicados %} / {% endif %}Estado: {{ estado|capitalize }}{% endif %}
+        {% else %}
+          Ninguno
+        {% endif %}
+      </p>
+    </div>
+
+    <!-- Tabla -->
     <div class="overflow-x-auto border rounded-lg shadow">
-    <table class="min-w-full divide-y divide-gray-300 border border-gray-300 text-xs">
+      <table class="min-w-full divide-y divide-gray-300 border border-gray-300 text-xs">
         <thead class="bg-gray-200 text-gray-800 uppercase tracking-wide">
-        <tr>
-            <th class="px-4 py-1 text-left">Descripción</th>
+          <tr>
             <th class="px-4 py-1 text-left">ID</th>
-        </tr>
+            <th class="px-4 py-1 text-left">Descripción</th>
+            <th class="px-4 py-1 text-left">Estado de conservación</th>
+          </tr>
         </thead>
         <tbody>
-        {% for m in mobiliarios %}
-        <tr class="{% if loop.index0 % 2 == 0 %}bg-white{% else %}bg-gray-100{% endif %} hover:bg-blue-50">
+          {% for m in mobiliarios|sort(attribute=1, reverse=false) %}
+          <tr class="{% if loop.index0 % 2 == 0 %}bg-white{% else %}bg-gray-100{% endif %} hover:bg-blue-50">
+            <td class="px-4 py-1 align-top font-semibold text-gray-700">{{ m[1] }}</td>
             <td class="px-4 py-1 align-top">{{ m[0] }}</td>
-            <td class="px-4 py-1 align-top">{{ m[1] }}</td>
-        </tr>
-        {% endfor %}
+            <td class="px-4 py-1 align-top text-gray-700">{{ m[2] or '-' }}</td>
+          </tr>
+          {% endfor %}
+          {% if mobiliarios|length == 0 %}
+          <tr>
+            <td colspan="3" class="text-center py-4 text-gray-500">No se encontraron resultados con los filtros seleccionados.</td>
+          </tr>
+          {% endif %}
         </tbody>
-    </table>
+      </table>
     </div>
 
     <!-- Pie -->
-    <div class="mt-6 text-right text-xs text-gray-500">
-      <p>Total: {{ mobiliarios|length }} unidades</p>
+    <div class="mt-6 text-right text-xs text-gray-600">
+      <p>Total: {{ mobiliarios|length }} mobiliarios encontrados</p>
+    </div>
+
+    <!-- Firmas -->
+    <div class="mt-16 flex justify-around text-center text-sm text-gray-800">
+      <div>
+        <div class="border-t border-dotted border-gray-500 w-64 mx-auto mb-1"></div>
+        Responsable Área
+      </div>
+      <div>
+        <div class="border-t border-dotted border-gray-500 w-64 mx-auto mb-1"></div>
+        Responsable Patrimonio
+      </div>
     </div>
   </div>
-  <!-- Firmas -->
-<div class="mt-16 flex justify-around text-center text-sm text-gray-800">
-  <div>
-    <div class="border-t border-dotted border-gray-500 w-64 mx-auto mb-1"></div>
-    Responsable Área
-  </div>
-  <div>
-    <div class="border-t border-dotted border-gray-500 w-64 mx-auto mb-1"></div>
-    Responsable Patrimonio
-  </div>
-</div>
 
+  <style>
+    @media print {
+      body {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+        margin: 0;
+        font-size: 0.75rem;
+      }
+      .shadow, .rounded-lg { box-shadow: none !important; }
+      table { border-collapse: collapse !important; }
+      th, td { border: 1px solid #ccc !important; padding: 4px !important; }
+      tr:nth-child(even) { background-color: #f9f9f9 !important; }
+      tr:nth-child(odd) { background-color: white !important; }
+      img { max-height: 60px !important; }
+      @page { size: A4 portrait; margin: 1.5cm; }
+    }
+  </style>
 </body>
 </html>
 
-<style>
-  @media print {
-    body {
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
-      margin: 0;
-      font-size: 0.7rem;
-    }
 
-    .shadow, .rounded-lg {
-      box-shadow: none !important;
-    }
-
-    table {
-      border-collapse: collapse !important;
-    }
-
-    th, td {
-      border: 1px solid #ccc !important;
-      padding: 4px !important;
-    }
-
-    tr:nth-child(even) {
-      background-color: #f9f9f9 !important;
-    }
-
-    tr:nth-child(odd) {
-      background-color: white !important;
-    }
-
-    img {
-      max-height: 60px !important;
-    }
-
-    @page {
-      size: A4 portrait;
-      margin: 1.5cm;
-    }
-  }
-</style>
