@@ -200,8 +200,9 @@ class Agente(db.Model):
             "id_subdependencia": self.id_subdependencia,
             "anexo": self.anexo.nombre if self.anexo else None,
             "subdependencia": self.subdependencia.nombre if self.subdependencia else None,
-            "fecha_creacion": self.fecha_creacion.strftime("%Y-%m-%d %H:%M:%S")
+            "fecha_creacion": self.fecha_creacion.strftime("%d/%m/%Y %H:%M") if self.fecha_creacion else None
         }
+
 
 
 
@@ -1884,16 +1885,28 @@ def mobiliario_filtros():
 
 
 #SISTEMA DE PERSONAL ----------------------------------------------------------------------------------------
+# =======================================================
+# 🧭 API REST para la gestión de agentes
+# =======================================================
+
+# 🟢 1️⃣ CREAR UN NUEVO AGENTE -------------------------------------------------
 @app.route('/api/agentes', methods=['POST'])
 def crear_agente():
+    """
+    Crea un nuevo agente en la base de datos.
+    Requiere: legajo, dni_cuil, apellido, nombre.
+    Opcional: id_anexo, id_subdependencia, categoria, tipo, cargo, telefono, email, foto_url.
+    """
     try:
         data = request.get_json() or {}
 
-        required = ['legajo', 'dni_cuil', 'apellido', 'nombre']
-        for campo in required:
+        # Validar campos obligatorios
+        campos_obligatorios = ['legajo', 'dni_cuil', 'apellido', 'nombre']
+        for campo in campos_obligatorios:
             if not data.get(campo):
                 return jsonify({"error": f"Falta el campo obligatorio: {campo}"}), 400
 
+        # Crear el nuevo objeto Agente
         nuevo = Agente(
             legajo=data['legajo'],
             dni_cuil=data['dni_cuil'],
@@ -1909,8 +1922,10 @@ def crear_agente():
             foto_url=data.get('foto_url')
         )
 
+        # Guardar en la base
         db.session.add(nuevo)
         db.session.commit()
+
         return jsonify({
             "mensaje": "Agente registrado correctamente",
             "agente": nuevo.to_dict()
@@ -1919,6 +1934,113 @@ def crear_agente():
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
+
+
+# 🟠 2️⃣ LISTAR TODOS LOS AGENTES ----------------------------------------------
+@app.route('/api/agentes', methods=['GET'])
+def listar_agentes():
+    """
+    Devuelve un listado completo de todos los agentes,
+    con sus anexos y subdependencias asociados.
+    """
+    try:
+        agentes = Agente.query.order_by(Agente.apellido, Agente.nombre).all()
+        return jsonify([a.to_dict() for a in agentes]), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# 🔵 3️⃣ OBTENER UN AGENTE POR ID ----------------------------------------------
+@app.route('/api/agentes/<int:id>', methods=['GET'])
+def obtener_agente(id):
+    """Obtiene la información detallada de un agente por su ID."""
+    agente = Agente.query.get(id)
+    if not agente:
+        return jsonify({"error": "Agente no encontrado"}), 404
+    return jsonify(agente.to_dict()), 200
+
+
+# 🟣 4️⃣ EDITAR UN AGENTE EXISTENTE --------------------------------------------
+@app.route('/api/agentes/<int:id>', methods=['PUT', 'PATCH'])
+def editar_agente(id):
+    """
+    Actualiza los datos de un agente existente.
+    Permite modificar cualquiera de los campos opcionales.
+    """
+    try:
+        agente = Agente.query.get(id)
+        if not agente:
+            return jsonify({"error": "Agente no encontrado"}), 404
+
+        data = request.get_json() or {}
+
+        # Actualizar solo los campos presentes en el request
+        for campo in [
+            "legajo", "dni_cuil", "apellido", "nombre",
+            "id_anexo", "id_subdependencia",
+            "categoria", "tipo", "cargo", "telefono", "email", "foto_url"
+        ]:
+            if campo in data:
+                setattr(agente, campo, data[campo])
+
+        db.session.commit()
+        return jsonify({
+            "mensaje": "Agente actualizado correctamente",
+            "agente": agente.to_dict()
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+
+# 🔴 5️⃣ ELIMINAR UN AGENTE ----------------------------------------------------
+@app.route('/api/agentes/<int:id>', methods=['DELETE'])
+def eliminar_agente(id):
+    """
+    Elimina un agente por su ID.
+    """
+    try:
+        agente = Agente.query.get(id)
+        if not agente:
+            return jsonify({"error": "Agente no encontrado"}), 404
+
+        db.session.delete(agente)
+        db.session.commit()
+        return jsonify({"mensaje": "Agente eliminado correctamente"}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+
+# 🟡 6️⃣ LISTAR AGENTES POR ANEXO ----------------------------------------------
+@app.route('/api/agentes/anexo/<int:anexo_id>', methods=['GET'])
+def agentes_por_anexo(anexo_id):
+    """
+    Lista todos los agentes que pertenecen a un anexo específico.
+    """
+    try:
+        agentes = Agente.query.filter_by(id_anexo=anexo_id)\
+                              .order_by(Agente.apellido).all()
+        return jsonify([a.to_dict() for a in agentes]), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# 🟤 7️⃣ LISTAR AGENTES POR SUBDEPENDENCIA -------------------------------------
+@app.route('/api/agentes/subdependencia/<int:sub_id>', methods=['GET'])
+def agentes_por_subdependencia(sub_id):
+    """
+    Lista todos los agentes que pertenecen a una subdependencia específica.
+    """
+    try:
+        agentes = Agente.query.filter_by(id_subdependencia=sub_id)\
+                              .order_by(Agente.apellido).all()
+        return jsonify([a.to_dict() for a in agentes]), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 
 # ▶️ Ejecutar con python app.py
