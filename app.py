@@ -1228,7 +1228,33 @@ def ver_mobiliario():
 @app.route('/imprimir')
 def imprimir():
     anexos = Anexo.query.all()
-    return render_template('imprimir.html', anexos=anexos)
+
+    # Diccionario de campos (etiquetas de los filtros)
+    campos = {
+        "no_dado": "No Dado",
+        "para_reparacion": "Reparación",
+        "para_baja": "Para baja",
+        "faltante": "Faltante",
+        "sobrante": "Sobrante",
+        "problema_etiqueta": "Problema etiqueta"
+    }
+
+    # Filtros seleccionados (desde los checkboxes del GET)
+    filtros_estado = request.args.getlist('estado')
+    filtros_conservacion = request.args.getlist('conservacion')
+
+    # Si todavía no hay búsqueda, mostrás todos o vacío
+    mobiliario = []
+
+    return render_template(
+        'imprimir.html',
+        anexos=anexos,
+        campos=campos,
+        filtros_estado=filtros_estado,
+        filtros_conservacion=filtros_conservacion,
+        mobiliario=mobiliario
+    )
+
 
 
 from datetime import datetime
