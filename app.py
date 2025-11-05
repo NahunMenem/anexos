@@ -161,6 +161,47 @@ class Auditoria(db.Model):
             "usuario": self.usuario
         }
 
+class Agente(db.Model):
+    __tablename__ = 'agentes'
+    id = db.Column(db.Integer, primary_key=True)
+    legajo = db.Column(db.String(20), unique=True, nullable=False)
+    dni_cuil = db.Column(db.String(20), nullable=False)
+    apellido = db.Column(db.String(100), nullable=False)
+    nombre = db.Column(db.String(100), nullable=False)
+
+    id_anexo = db.Column(db.Integer, db.ForeignKey('anexos.id', ondelete='SET NULL'))
+    id_subdependencia = db.Column(db.Integer, db.ForeignKey('subdependencias.id', ondelete='SET NULL'))
+
+    categoria = db.Column(db.String(10))
+    tipo = db.Column(db.String(50))
+    cargo = db.Column(db.String(100))
+    telefono = db.Column(db.String(30))
+    email = db.Column(db.String(150))
+    foto_url = db.Column(db.Text)
+    fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
+
+    anexo = db.relationship('Anexo', backref='agentes', lazy=True)
+    subdependencia = db.relationship('Subdependencia', backref='agentes', lazy=True)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "legajo": self.legajo,
+            "dni_cuil": self.dni_cuil,
+            "apellido": self.apellido,
+            "nombre": self.nombre,
+            "categoria": self.categoria,
+            "tipo": self.tipo,
+            "cargo": self.cargo,
+            "telefono": self.telefono,
+            "email": self.email,
+            "foto_url": self.foto_url,
+            "id_anexo": self.id_anexo,
+            "id_subdependencia": self.id_subdependencia,
+            "anexo": self.anexo.nombre if self.anexo else None,
+            "subdependencia": self.subdependencia.nombre if self.subdependencia else None,
+            "fecha_creacion": self.fecha_creacion.strftime("%Y-%m-%d %H:%M:%S")
+        }
 
 
 
@@ -1840,6 +1881,44 @@ def mobiliario_filtros():
     anexos = Anexo.query.order_by(Anexo.nombre).all()
     rubros = Rubro.query.order_by(Rubro.nombre).all()
     return render_template("mobiliario_filtros.html", anexos=anexos, rubros=rubros)
+
+
+#SISTEMA DE PERSONAL ----------------------------------------------------------------------------------------
+@app.route('/api/agentes', methods=['POST'])
+def crear_agente():
+    try:
+        data = request.get_json() or {}
+
+        required = ['legajo', 'dni_cuil', 'apellido', 'nombre']
+        for campo in required:
+            if not data.get(campo):
+                return jsonify({"error": f"Falta el campo obligatorio: {campo}"}), 400
+
+        nuevo = Agente(
+            legajo=data['legajo'],
+            dni_cuil=data['dni_cuil'],
+            apellido=data['apellido'],
+            nombre=data['nombre'],
+            id_anexo=data.get('id_anexo'),
+            id_subdependencia=data.get('id_subdependencia'),
+            categoria=data.get('categoria'),
+            tipo=data.get('tipo'),
+            cargo=data.get('cargo'),
+            telefono=data.get('telefono'),
+            email=data.get('email'),
+            foto_url=data.get('foto_url')
+        )
+
+        db.session.add(nuevo)
+        db.session.commit()
+        return jsonify({
+            "mensaje": "Agente registrado correctamente",
+            "agente": nuevo.to_dict()
+        }), 201
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
 
 
 # ▶️ Ejecutar con python app.py
