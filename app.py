@@ -1920,11 +1920,32 @@ def mobiliario_filtros():
 def crear_agente():
     """
     Crea un nuevo agente en la base de datos.
+    Permite subir una imagen (campo 'foto') que se guarda en Cloudinary.
     Requiere: legajo, dni_cuil, apellido, nombre.
     Opcional: id_anexo, id_subdependencia, categoria, tipo, cargo, telefono, email, foto_url.
     """
     try:
-        data = request.get_json() or {}
+        # Si viene JSON (sin archivo)
+        if request.is_json:
+            data = request.get_json() or {}
+            foto_url = data.get("foto_url")
+
+        # Si viene como formulario multipart (con archivo)
+        else:
+            data = request.form.to_dict()
+            foto_url = None
+
+            # 📸 Subir imagen si está presente
+            if "foto" in request.files:
+                file = request.files["foto"]
+                if file and file.filename != "":
+                    # Guardar temporalmente el archivo
+                    with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as temp:
+                        file.save(temp.name)
+                        # Subir a Cloudinary (carpeta agentes)
+                        result = cloudinary.uploader.upload(temp.name, folder="agentes")
+                        foto_url = result.get("secure_url")
+                        os.remove(temp.name)
 
         # Validar campos obligatorios
         campos_obligatorios = ['legajo', 'dni_cuil', 'apellido', 'nombre']
@@ -1945,10 +1966,9 @@ def crear_agente():
             cargo=data.get('cargo'),
             telefono=data.get('telefono'),
             email=data.get('email'),
-            foto_url=data.get('foto_url')
+            foto_url=foto_url  # ✅ se carga automáticamente desde Cloudinary
         )
 
-        # Guardar en la base
         db.session.add(nuevo)
         db.session.commit()
 
@@ -1960,6 +1980,7 @@ def crear_agente():
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
+
 
 
 # 🟠 2️⃣ LISTAR TODOS LOS AGENTES ----------------------------------------------
