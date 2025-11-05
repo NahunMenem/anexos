@@ -2041,6 +2041,10 @@ def agentes_por_subdependencia(sub_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route('/agentes')
+def agentes():
+    return render_template('agentes.html')
+
 
 
 # ▶️ Ejecutar con python app.py
